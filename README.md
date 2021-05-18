@@ -1,7 +1,7 @@
 # Python YOLO Object Detection using OpenCV - Flask App
 
 To run this locally:
-* Download the [model weights](https://pjreddie.com/media/files/yolov3.weights) and put them in the `app/weights`. Right now the folder is empty - you need to put the output of the model weights download into this folder once you have cloned this repo. 
+* Download the [model weights](https://pjreddie.com/media/files/yolov3.weights) and put them in the `app/weights`. First create a `weights` directory in the `app` directory, then place the downloaded weights into this folder on your machine - these are the model weights, the app will not run without them.
 
 * In the terminal:
 	 1. run the package dependencies `pip install -r requirements.txt`
