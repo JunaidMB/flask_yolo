@@ -1,4 +1,4 @@
 __pycache__
 .vscode
 .DS_Store
-/app/weights/yolov3.weights
+yolov3.weights
