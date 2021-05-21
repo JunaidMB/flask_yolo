@@ -1,3 +1,5 @@
+from app import app
+
 import os
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -6,6 +8,8 @@ import numpy as np
 import time
 import sys
 import io
+from ibm_botocore.client import Config
+import ibm_boto3
 from zipfile import ZipFile
 from os.path import basename
 from io import StringIO, BytesIO
@@ -32,16 +36,19 @@ def zip_files(zipfilename, directoryname):
 def detect_objects(input_path, config_path, weights_path, label_names, CONFIDENCE = 0.5, SCORE_THRESHOLD = 0.5, IOU_THRESHOLD = 0.5):
     
     # the neural network configuration
-    #config_path = "cfg/yolov3.cfg"
+
     # the YOLO net weights file
-    #weights_path = "weights/yolov3.weights"
+    model_weights = os.listdir(weights_path)[0]
+    model_weights_path = f'{weights_path}/{model_weights}'
+
+
     # loading all the class labels (objects)
     labels = open(label_names).read().strip().split("\n")
     # generating colors for each object for later plotting
     colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
 
     # load the YOLO network
-    net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
+    net = cv2.dnn.readNetFromDarknet(config_path, model_weights_path)
 
     # path_name = "images/city_scene.jpg"
     path_name = input_path # Image path
@@ -136,3 +143,69 @@ def detect_objects(input_path, config_path, weights_path, label_names, CONFIDENC
     
     print("Detection Complete")
     return Image.fromarray(image)
+
+# Connecting to IBM COS Bucket
+# List objects in bucket
+def bucket_list_files(resource, bucket_name):
+    bucket = resource.Bucket(bucket_name)
+
+    bucket_obj = bucket.objects.all()
+
+    bucket_files = [i.key for i in bucket_obj]
+
+    return bucket_files
+
+# Download files from bucket
+def bucket_download_file(resource, bucket_name, filename, download_destination):
+    resource.Object(bucket_name, filename).download_file(download_destination)
+    return print("Download Complete")
+
+# Upload files to Bucket
+def bucket_upload_file(client, bucket_name, filename_to_upload, filename_in_bucket):
+    client.upload_file(filename_to_upload, bucket_name, filename_in_bucket)
+    return print("Upload Complete")
+
+# Check model
+def check_model():
+    # Connect to IBM COS BUCKET and update model object
+    # Create resource
+    resource = ibm_boto3.resource("s3",
+        ibm_api_key_id=app.config["APIKEY"],
+        ibm_service_instance_id=app.config["RESOURCE_INSTANCE_ID"],
+        ibm_auth_endpoint = app.config["AUTH_ENDPOINT"],
+        config=Config(signature_version="oauth"),
+        endpoint_url=app.config["SERVICE_ENDPOINT"]
+        )
+
+    # Create client 
+    client = ibm_boto3.client("s3",
+        ibm_api_key_id=app.config["APIKEY"],
+        ibm_auth_endpoint = app.config["AUTH_ENDPOINT"],                   
+        config=Config(signature_version="oauth"),
+        endpoint_url=app.config["SERVICE_ENDPOINT"]
+        )
+
+    # Check if the model in the app is the same as in the bucket and update if not
+
+    #current_file_date = [i.split(":")[1] for i in os.listdir(app.config["MODEL_WEIGHTS_FOLDER"]) ][0]
+    #bucket_file_date = [i.split(":")[1] for i in bucket_list_files(resource = resource, bucket_name = app.config["BUCKET_NAME"]) ][0]
+
+    if len(os.listdir(app.config["MODEL_WEIGHTS_FOLDER"])) == 0: # If directory is empty
+        
+        # Download latest model weights
+        bucket_download_file(resource = resource, bucket_name = app.config["BUCKET_NAME"], filename = bucket_list_files(resource = resource, bucket_name = app.config["BUCKET_NAME"])[0], download_destination = app.config["MODEL_WEIGHTS_FOLDER"] + bucket_list_files(resource = resource, bucket_name = app.config["BUCKET_NAME"])[0] )
+
+    elif [i.split(":")[1] for i in os.listdir(app.config["MODEL_WEIGHTS_FOLDER"]) ][0] == [i.split(":")[1] for i in bucket_list_files(resource = resource, bucket_name = app.config["BUCKET_NAME"]) ][0]: # If model in app is the same as model in bucket
+        
+        print("Model is up to date")
+        pass
+
+    else: # If model in app is different from model in bucket
+        
+        # Clean model weights directory
+        clean_directory(dir = app.config["MODEL_WEIGHTS_FOLDER"])
+
+        # Download latest model weights
+        bucket_download_file(resource = resource, bucket_name = app.config["BUCKET_NAME"], filename = bucket_list_files(resource = resource, bucket_name = app.config["BUCKET_NAME"])[0], download_destination = app.config["MODEL_WEIGHTS_FOLDER"] + bucket_list_files(resource = resource, bucket_name = app.config["BUCKET_NAME"])[0] )
+
+        print("Model is up to date")

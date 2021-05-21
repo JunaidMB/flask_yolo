@@ -1,4 +1,7 @@
 from flask import Flask
+import os
+from ibm_botocore.client import Config
+import ibm_boto3
 
 app = Flask(__name__)
 

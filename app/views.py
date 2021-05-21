@@ -28,7 +28,10 @@ def upload_file():
             print('no filename')
             return redirect(request.url)
         else:
-            # Clean the directory of any existing files
+            # Update the model object to the most recent instance in COS Bucket
+            check_model()
+
+            # Clean the upload directory of any existing files
             clean_directory(dir = app.config['UPLOAD_FOLDER'])
             
             for file in files:
@@ -38,7 +41,7 @@ def upload_file():
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
                 # Apply YOLO object detection model to each image
-                processed_file = detect_objects(input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename), config_path = app.config["CFG"], weights_path = app.config["MODEL_WEIGHTS"], label_names = app.config["LABELS"], CONFIDENCE = 0.5, SCORE_THRESHOLD = 0.5, IOU_THRESHOLD = 0.5)
+                processed_file = detect_objects(input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename), config_path = app.config["CFG"], weights_path = app.config["MODEL_WEIGHTS_FOLDER"], label_names = app.config["LABELS"], CONFIDENCE = 0.5, SCORE_THRESHOLD = 0.5, IOU_THRESHOLD = 0.5)
 
                 # Save the processed image
                 processed_file.seek(0)
